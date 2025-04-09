@@ -1,8 +1,12 @@
 package com.TrainMS.Train.services;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import com.TrainMS.Train.models.Route;
@@ -30,9 +34,35 @@ enum Infinity {
     }
 }
 
+
+
 @Service
 @RequiredArgsConstructor
 public class RouteService {
+    private List<Route> findPathFromSourceToDestination(List<Route> sortedRoutes, Long sourceId, Long destinationId) {
+        List<Route> path = new ArrayList<>();
+        boolean inPath = false;
+
+        for (Route route : sortedRoutes) {
+            if (!inPath && route.getSource().getStationID() == sourceId) {
+                inPath = true;
+            }
+
+            if (inPath) {
+                path.add(route);
+                if (route.getDestination().getStationID() == destinationId) {
+                    break;
+                }
+            }
+        }
+
+        // If destination was not reached, discard the partial path
+        if (path.isEmpty() || path.get(path.size() - 1).getDestination().getStationID() != destinationId) {
+            return Collections.emptyList();
+        }
+
+        return path;
+    }
 
     private final RouteRepository routeRepository;
     private final TrainService trainService;
@@ -71,6 +101,7 @@ public class RouteService {
         return routeRepository.findById(id).orElse(null);
     }
 
+    
     public List<Route> getSpecificRoute(Long trainId, Long source, Long destination) {
         
         Train train = trainService.getTrain(trainId);
@@ -87,11 +118,36 @@ public class RouteService {
 
 
 
-    public List<Route> getRoutesBySourceAndDestination(Station source, Station destination) {
+    public List<Route> getIMMEDIATERoutesBySourceAndDestination(Station source, Station destination) {
         return routeRepository.findBySourceAndDestination(source, destination).stream()
                 .sorted(Comparator.comparing(Route::getArrivalTime))
                 .toList();
     }
+
+
+    public List<Route> getRoutesBySourceAndDestination(Station source, Station destination) 
+    {
+        List<Route> allRoutes = routeRepository.findAll(); // Fetch all routes
+
+        Map<Long, List<Route>> routesByTrain = allRoutes.stream()
+                .collect(Collectors.groupingBy(r -> r.getTrain().getTrainID()));
+
+        List<Route> result = new ArrayList<>();
+
+        for (Map.Entry<Long, List<Route>> entry : routesByTrain.entrySet()) {
+            List<Route> routes = entry.getValue().stream()
+                    .sorted(Comparator.comparing(Route::getDepartureTime))
+                    .toList();
+
+            // Attempt to find continuous path from source to destination
+            List<Route> path = this.findPathFromSourceToDestination(routes, source.getStationID(), destination.getStationID());
+            result.addAll(path);
+        }
+
+    return result;
+}
+
+
 
     public List<Route> getRoutesBySource(Station source) {
         return routeRepository.findBySource(source).stream()
