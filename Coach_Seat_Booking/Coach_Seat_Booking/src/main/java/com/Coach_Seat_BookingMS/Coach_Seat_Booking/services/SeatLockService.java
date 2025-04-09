@@ -28,11 +28,21 @@ public class SeatLockService {
 
     private static final Logger logger = LoggerFactory.getLogger(SeatLockService.class);
 
-    private final RedisTemplate<String, String> redisTemplate = new RedisTemplate<>();
-    private SeatRepository seatRepository;
+    // RedisTemplate is used to interact with Redis
+    // It is assumed that Redis is already configured in the application context
+    // You can use @Autowired to inject it if you have a Redis configuration class
+    // or you can create a RedisConfig class to configure RedisTemplate bean
+    // For example:
+    // @Bean
+    // public RedisTemplate<String, String> redisTemplate() {
+    //     RedisTemplate<String, String> template = new RedisTemplate<>();
+    //     template.setConnectionFactory(redisConnectionFactory());
+    private final RedisTemplate<String, String> redisTemplate;
+    private final SeatRepository seatRepository;
 
-    @Value("${seat.lock.duration.seconds}")
-    private static long lockDuration = 600; // 10 minutes in seconds
+    @Value("${seat.lock.duration.seconds:600}")
+    private long lockDuration;
+    
 
 
 

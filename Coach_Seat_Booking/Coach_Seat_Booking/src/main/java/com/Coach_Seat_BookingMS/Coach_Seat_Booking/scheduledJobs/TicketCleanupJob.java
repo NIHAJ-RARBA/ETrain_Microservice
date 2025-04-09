@@ -29,14 +29,15 @@ public class TicketCleanupJob {
         for (Ticket ticket : expiredTickets) {
             List<Seat> seats = ticket.getSeats();
             
-            // Release seats
-            for (Seat seat : seats) {
-                seat.setStatus(SeatStatus.AVAILABLE);
-                seatRepository.save(seat);
-
-                // remove Redis lock
-                seatLockService.unlockSeat(seat.getSeatId());
+            if (seats != null) {
+                for (Seat seat : seats) {
+                    seatLockService.unlockSeat(seat.getSeatId());
+                    seat.setStatus(SeatStatus.AVAILABLE);
+                    seatRepository.save(seat);
+                }
             }
+
+            System.out.println("Expired ticket cleaned up: " + ticket.getTicketId());            
 
             ticketRepository.delete(ticket); // remove ticket
         }
