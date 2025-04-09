@@ -107,8 +107,27 @@ public class BookingService {
             return false;
         }
 
+
+
+        List<Seat> oldSeats = ticket.get().getSeats();
+        // get the seats that are not present in seats
+        List<Seat> seatsToUnlock = oldSeats.stream().filter(seat -> !seats.contains(seat)).toList();
+        List<Seat> seatsToLock = seats.stream().filter(seat -> !oldSeats.contains(seat)).toList();
+        
+        if(!seatsToUnlock.isEmpty()) {
+            seatLockService.unlockSeats(seatsToUnlock.stream().map(Seat::getSeatId).toArray(Long[]::new)); // unlock old seats
+        }
+        
+        
+        if(!seatsToLock.isEmpty()) {
+            seatLockService.lockSeatsForUser(seatsToLock.stream().map(Seat::getSeatId).toArray(Long[]::new), ticket.get().getUserId()); // lock new seats
+        }
+
+        // update the ticket with new seats and passengers
         ticket.get().setPassengers(passengers);
         ticket.get().setSeats(seats);
+        ticket.get().setPaid(false); // set paid to false
+
         ticketRepository.save(ticket.get());
         return true;
     }
@@ -121,5 +140,6 @@ public class BookingService {
         return ticket.get().getTotalAmount();
     }
 
+    
 }
 

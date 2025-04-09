@@ -48,7 +48,7 @@ public class SeatLockService {
 
     public boolean lockSeat(Long seatId, Long userId) {
         logger.info("Attempting to lock seat: {}", seatId);
-        String lockKey = "seat_lock:" + seatId + ":" + userId;
+        String lockKey = "seat_lock:" + seatId + ":" + userId; 
         try {
             Seat seat = seatRepository.findById(seatId)
                                     .orElseThrow(() -> new IllegalArgumentException("Seat not found"));
