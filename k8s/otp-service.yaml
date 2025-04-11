@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otp-service
+  namespace: railway-system
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: otp-service
+  template:
+    metadata:
+      labels:
+        app: otp-service
+    spec:
+      containers:
+        - name: otp-service
+          image: heisamit/otp-service:latest
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:h2:mem:otp_db"
+            - name: SPRING_MAIL_USERNAME
+              value: "sahaamit20002@gmail.com"
+            - name: SPRING_MAIL_PASSWORD
+              value: "mryb srze cddf jrsm"
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otp-service
+  namespace: railway-system
+spec:
+  selector:
+    app: otp-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
