@@ -28,7 +28,7 @@ public class TicketCleanupJob {
     @Scheduled(fixedRate = 60000) // every 1 min = 60000ms
     @Transactional
     public void expireUnpaidTickets() {
-        LocalDateTime tenMinutesAgo = LocalDateTime.now().minusMinutes(1);
+        LocalDateTime tenMinutesAgo = LocalDateTime.now().minusMinutes(10);
         List<Ticket> expiredTickets = ticketRepository.findByIsPaidFalseAndCreatedAtBefore(tenMinutesAgo);
 
         for (Ticket ticket : expiredTickets) {

@@ -12,10 +12,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableScheduling
-public class CoachSeatApplication {
+public class CoachSeatBookingApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(CoachSeatApplication.class, args);
+		SpringApplication.run(CoachSeatBookingApplication.class, args);
 	}
 
 }

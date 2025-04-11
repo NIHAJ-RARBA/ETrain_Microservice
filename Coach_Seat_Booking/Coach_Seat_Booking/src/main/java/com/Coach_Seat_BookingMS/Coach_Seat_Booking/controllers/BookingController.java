@@ -9,7 +9,6 @@ import com.Coach_Seat_BookingMS.Coach_Seat_Booking.models.Seat;
 import com.Coach_Seat_BookingMS.Coach_Seat_Booking.models.Ticket;
 import com.Coach_Seat_BookingMS.Coach_Seat_Booking.services.BookingService;
 import com.Coach_Seat_BookingMS.Coach_Seat_Booking.services.CoachSeatService;
-import com.Coach_Seat_BookingMS.Coach_Seat_Booking.services.SeatLockService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -45,7 +44,6 @@ public class BookingController {
     private final BookingService bookingService;
     private final CoachSeatService coachSeatService;
 
-    private final SeatLockService seatLockService;
 
     public SeatPassengerListList seatAndPassengerListCreation(TicketRequest request) {
         List<Seat> seatsInCoach = coachSeatService.getSeatsByCoachId(request.getCoachId());
@@ -124,7 +122,7 @@ public class BookingController {
         // System.out.println("PASSENGERS IN TICKET: " + passengers);
 
         for (Seat seat : seatsInTicket) {
-            if (seat.getStatus() == SeatStatus.UNAVAILABLE || seatLockService.isSeatLocked(seat.getSeatId(), bookingRequest.getUserId())) {
+            if (seat.getStatus() == SeatStatus.UNAVAILABLE) {
                 System.err.println("Seat " + seat.getSeatId() + " is already booked or locked by another user.");
                 return new ResponseEntity<>(null, HttpStatus.CONFLICT);
             }
@@ -181,6 +179,10 @@ public class BookingController {
 
             List<Seat> seatsInTicket = map.seatsInTicket;
             List<Passengers> passengers = map.passengers;
+
+            for (Passengers passenger : passengers) {
+                passenger.setTicket(ticket);
+            }
 
             if (bookingService.updateTicket(ticket.getTicketId(), seatsInTicket, passengers)) {
                 return new ResponseEntity<>("Ticket updated successfully", HttpStatus.OK);

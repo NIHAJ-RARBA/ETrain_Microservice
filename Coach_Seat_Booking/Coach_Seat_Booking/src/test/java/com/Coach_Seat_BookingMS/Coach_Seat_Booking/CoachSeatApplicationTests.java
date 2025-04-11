@@ -1,10 +1,10 @@
-package com.Coach_SeatMS.Coach_seat;
+package com.Coach_Seat_BookingMS.Coach_Seat_Booking;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class CoachSeatApplicationTests {
+class CoachSeatBookingApplicationTests {
 
 	@Test
 	void contextLoads() {

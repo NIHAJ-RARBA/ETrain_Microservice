@@ -8,11 +8,11 @@
 		<version>3.4.4</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.Coach-SeatMS</groupId>
-	<artifactId>Coach_seat</artifactId>
+	<groupId>com.Coach_Seat_BookingMS</groupId>
+	<artifactId>Coach_Seat_Booking</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>Coach_seat</name>
-	<description>Coach and seat Microservice, uses the train database</description>
+	<name>Coach_Seat_Booking</name>
+	<description>Coach_Seat_Booking Microservice, uses the train database</description>
 	<url/>
 	<licenses>
 		<license/>

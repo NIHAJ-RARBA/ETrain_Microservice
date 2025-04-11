@@ -70,14 +70,13 @@ public class BookingService {
             return Optional.empty();
         }
 
-        // Check if the seats are already booked
-        for (Seat seat : seats) {
-            if (seatLockService.isSeatLocked(seat.getSeatId(), userId)) {
-                System.out.println("Seat " + seat.getSeatId() + " is already booked by user: " + userId);
-                System.out.println("Seat " + seat.getSeatId() + " is already booked.");                
-                return Optional.empty();
-            }
+        // temporarily lock the seats
+        if (!seatLockService.lockSeatsForUser(
+            seats.stream().map(Seat::getSeatId).toArray(Long[]::new), userId)) {
+            System.out.println("Failed to lock seats for user: " + userId);
+            return Optional.empty();
         }
+
 
         // System.err.println(seats);
 
@@ -86,14 +85,17 @@ public class BookingService {
         Ticket ticket = new Ticket();
         ticket.setUserId(userId);
         ticket.setCoach(coach);
-        ticket.setSeats(new ArrayList<>(seats));
         ticket.setPaid(false);
         ticket.setCreatedAt(java.time.LocalDateTime.now());
         
         ticket.setTotalAmount(ticket.getTotalAmount()); // Calculate total amount based on seats and passengers
         // ticketRepository.save(ticket);
 
-        for (Seat seat : ticket.getSeats()) {
+
+
+
+                
+        for (Seat seat : seats) {
             
             if (seat.getTicket() != null)
             {
@@ -107,11 +109,7 @@ public class BookingService {
         
         
         
-        // temporary lock on seats
-        if (!seatLockService.lockSeatsForUser(seats.stream().map(Seat::getSeatId).toArray(Long[]::new), userId)) {
-            return Optional.empty();
-        }
-        
+
         for (Passengers passenger : passengers) {
             if (passenger.getTicket() != null) {
                 System.out.println("Passenger " + passenger.getName() + " is already in another ticket.");
@@ -153,12 +151,12 @@ public class BookingService {
             }
         }
     
+        passengerRepository.deleteAll(ticket.getPassengers());
         // Break relationships properly
         ticket.getSeats().clear();
         ticket.getPassengers().clear();
     
         // Delete passengers if needed
-        passengerRepository.deleteAll(ticket.getPassengers());
     
         // Now delete ticket
         ticketRepository.delete(ticket);
@@ -216,54 +214,53 @@ public class BookingService {
         if (ticket.isEmpty()) {
             return false;
         }
-
-        // if any of the seats are already booked, return false
-        for (Seat seat : seats) {
-            if (seat.getStatus() == SeatStatus.UNAVAILABLE || seatLockService.isSeatLocked(seat.getSeatId(), ticket.get().getUserId())) {
-                System.err.println("Seat " + seat.getSeatId() + " is already booked or locked by another user.");
+    
+        List<Seat> oldSeats = ticket.get().getSeats();
+        // Get the seats that are not present in the new list of seats
+        List<Seat> seatsToUnlock = oldSeats.stream().filter(seat -> !seats.contains(seat)).toList();
+        // Get the seats that are present in the new list but not in the old list
+        List<Seat> seatsToLock = seats.stream().filter(seat -> !oldSeats.contains(seat)).toList();
+    
+        // Unlock old seats that are not selected anymore
+        if (!seatsToUnlock.isEmpty()) {
+            seatLockService.unlockSeats(seatsToUnlock, ticket.get().getUserId()); // Unlock old seats
+        }
+    
+        // Lock the new seats that are being added to the ticket
+        if (!seatsToLock.isEmpty()) {
+            if (!seatLockService.lockSeatsForUser(seatsToLock.stream().map(Seat::getSeatId).toArray(Long[]::new), ticket.get().getUserId())) {
+                System.out.println("Failed to lock new seats for user: " + ticket.get().getUserId());
                 return false;
             }
         }
-
-
-
-        List<Seat> oldSeats = ticket.get().getSeats();
-        // get the seats that are not present in seats
-        List<Seat> seatsToUnlock = oldSeats.stream().filter(seat -> !seats.contains(seat)).toList();
-        List<Seat> seatsToLock = seats.stream().filter(seat -> !oldSeats.contains(seat)).toList();
-        
-        if(!seatsToUnlock.isEmpty()) {
-            seatLockService.unlockSeats(ticket.get().getSeats(), ticket.get().getUserId()); // unlock old seats
-        }
-        
-        
-        if(!seatsToLock.isEmpty()) {
-            seatLockService.lockSeatsForUser(seatsToLock.stream().map(Seat::getSeatId).toArray(Long[]::new), ticket.get().getUserId()); // lock new seats
-
-        }
-
-        // update the ticket with new seats and passengers
+    
+        // Update ticket with new seats and passengers
         ticket.get().setSeats(new ArrayList<>(seats));
         ticket.get().setPassengers(new ArrayList<>(passengers));
-        ticket.get().setTotalAmount(ticket.get().getTotalAmount()); // Calculate total amount based on seats and passengers
-        ticket.get().setPaid(false); // set paid to false
-
-        ticketRepository.save(ticket.get());
-
+        ticket.get().setTotalAmount(ticket.get().getTotalAmount()); // Calculate total amount based on new seats and passengers
+        ticket.get().setPaid(false); // Set paid to false (as this is an update, not a completed payment)
+    
+        // Handle seat and passenger updates
         for (Seat seat : ticket.get().getSeats()) {
             if (seat.getTicket() != null) {
                 System.out.println("Seat " + seat.getSeatId() + " is already booked.");
-                return false;
+                if (!seatLockService.isSeatLockedForUser(seat.getSeatId(), ticket.get().getUserId())) {
+                    return false; // If the seat is already locked for a different user, return false
+                }
             }
-
+    
+            // Clear the previous ticket association before setting the new ticket
             seat.setTicket(ticket.get());
-            seat.setStatus(SeatStatus.UNAVAILABLE); // set status to booked
-            seatRepository.save(seat); // Save the seat with the ticket ID
+            seat.setStatus(SeatStatus.UNAVAILABLE); // Mark as booked
+            seatRepository.save(seat); // Save the seat with the new ticket ID
         }
-
+    
+        // Save the updated ticket entity
+        ticketRepository.save(ticket.get());
+    
         return true;
     }
-
+    
 
 
     public Double getPayableAmount(Long ticketId) {

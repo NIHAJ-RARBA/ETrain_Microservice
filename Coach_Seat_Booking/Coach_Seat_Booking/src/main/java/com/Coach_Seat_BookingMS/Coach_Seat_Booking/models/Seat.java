@@ -47,7 +47,7 @@ public class Seat {
     private Long coachId;
         
     @ManyToOne
-    @JoinColumn(name = "ticket", unique = true)
+    @JoinColumn(name = "ticket")
     @JsonBackReference
     private Ticket ticket;
 

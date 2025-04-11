@@ -56,22 +56,31 @@ public class SeatLockService {
                 logger.warn("Seat is already unavailable: {}", seatId);
                 return false;
             }
-
-
+    
+            // Try to lock the seat with Redis
             Boolean success = redisTemplate.opsForValue().setIfAbsent(lockKey, userId.toString(), lockDuration, TimeUnit.SECONDS);
+            
             if (Boolean.TRUE.equals(success)) {
+                // Successfully locked, update seat status
                 logger.info("Successfully locked seat: {}", seatId);
                 seat.setStatus(SeatStatus.UNAVAILABLE);
-                // seatRepository.save(seat);
+                seatRepository.save(seat); // Save the updated seat status to the database
                 return true;
+            } else {
+                // If already locked by the same user, do nothing but log
+                if (redisTemplate.opsForValue().get(lockKey).equals(userId.toString())) {
+                    logger.info("Seat is already locked by this user: {}", seatId);
+                    return true; // No need to do anything, as the lock is still valid
+                }
+                logger.warn("Seat is already locked by another user: {}", seatId);
+                return false; // Return false if it's locked by another user
             }
-            logger.warn("Failed to lock seat: {} (already locked)", seatId);
-            return false;
         } catch (Exception e) {
             logger.error("Error while locking seat: {}", seatId, e);
             throw new RuntimeException("Failed to lock seat: " + seatId, e);
         }
     }
+    
 
     public boolean lockSeatsForUser(Long[] seatIds, Long userId) {
 
@@ -83,17 +92,17 @@ public class SeatLockService {
         return true;
     }
 
-    public boolean isSeatLocked(Long seatId, Long userId) {
+    public boolean isSeatLockedForUser(Long seatId, Long userId) {
         logger.info("Checking if seat is locked: {} for user: {}", seatId, userId);
         String lockKey = "seat_lock:" + seatId + ":" + userId;
     
         try {
             Boolean isLocked = redisTemplate.hasKey(lockKey);
             if (Boolean.TRUE.equals(isLocked)) {
-                logger.info("Seat is locked by user {}: {}", userId, seatId);
+                logger.info("Seat {} is locked by user {} ", seatId, userId);
                 return true;
             } else {
-                logger.info("Seat is not locked by user {}: {}", userId, seatId);
+                logger.info("Seat {} is not locked by user {} ", seatId, userId);
                 return false;
             }
         } catch (Exception e) {
@@ -113,22 +122,27 @@ public class SeatLockService {
 
     public void unlockSeat(Long seatId, Long userId) {
         logger.info("Unlocking seat: {} for user: {}", seatId, userId);
-        logger.info("Unlocking seat: {}", seatId);
         String lockKey = "seat_lock:" + seatId + ":" + userId; // Use the same lock key format as in lockSeat method
         try {
             redisTemplate.delete(lockKey);
-
+    
             Seat seat = seatRepository.findById(seatId)
                     .orElseThrow(() -> new IllegalArgumentException("Seat not found"));
-            seat.setStatus(SeatStatus.AVAILABLE);
-            seat.setTicket(null); // Remove ticket reference from seat
-            seatRepository.save(seat);
+            seat.setStatus(SeatStatus.AVAILABLE); // Change status to available
+    
+            // Only remove ticket reference if it's currently assigned to the user.
+            if (seat.getTicket() != null) {
+                // Ensure the seat is unlocked before reassigning a new ticket
+                seat.setTicket(null); // Remove ticket reference from seat
+            }
+    
+            seatRepository.save(seat); // Save the updated seat status and ticket association
         } catch (Exception e) {
             logger.error("Error while unlocking seat: {}", seatId, e);
             throw new RuntimeException("Failed to unlock seat: " + seatId, e);
         }
     }
-
+    
 
     public void unlockSeats(Long[] seatIds, Long userId) {
         System.out.println("Unlocking seats: " + seatIds);
