@@ -1,6 +1,5 @@
 package com.Coach_Seat_BookingMS.Coach_Seat_Booking.repositories;
 
-import com.Coach_Seat_BookingMS.Coach_Seat_Booking.models.Coach;
 import com.Coach_Seat_BookingMS.Coach_Seat_Booking.models.Seat;
 
 
@@ -15,6 +14,9 @@ public interface SeatRepository extends JpaRepository<Seat, Long> {
     // Optional<Seat> findBySeatNumber(String seatNumber);
 
     
-    List<Seat> findByCoach(Coach coach);
-    Optional<Seat> findByCoachAndSeatNumber(Coach coach, String seatNumber);
+    List<Seat> findByCoachId(Long coachId);
+    Optional<Seat> findByCoachIdAndSeatNumber(Long coachId, String seatNumber);
+
+    void deleteAllByCoachId(Long coachId);
+
 }

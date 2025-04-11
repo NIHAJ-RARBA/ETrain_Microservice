@@ -36,11 +36,11 @@ public class CoachController
     }
 
     @GetMapping("/byID")
-    public ResponseEntity<List<Coach>> getCoachesById(@RequestBody IdRequest idRequest) {
+    public ResponseEntity<Coach> getCoacheById(@RequestBody IdRequest idRequest) {
         Long id = idRequest.getId();
         Optional<Coach> coach = coachSeatService.getCoachById(id);
         if (coach.isPresent()) {
-            return new ResponseEntity<>(List.of(coach.get()), HttpStatus.OK);
+            return new ResponseEntity<>(coach.get(), HttpStatus.OK);
         } else {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
@@ -67,12 +67,21 @@ public class CoachController
         if (addCoachRequest.getRouteId() == null || addCoachRequest.getTrainId() == null || addCoachRequest.getCoachClass() == null) {
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         }
+        if (addCoachRequest.getTotalSeats() <= 0) {
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        }
+
+        if (addCoachRequest.getTotalSeats() > 104) {
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);            
+        }
+
+
         // Create a new Coach object from the request
         Coach coach = new Coach();
         coach.setRouteId(addCoachRequest.getRouteId());
         coach.setTrainId(addCoachRequest.getTrainId());
         coach.setCoachClass(addCoachRequest.getCoachClass());
-        // coach.setTotalSeats(addCoachRequest.getTotalSeats()); 
+        coach.setTotalSeats(addCoachRequest.getTotalSeats()); 
 
 
         Coach createdCoach = coachSeatService.createCoach(coach);
@@ -82,75 +91,111 @@ public class CoachController
     @PutMapping
     public ResponseEntity<Coach> updateCoach(@RequestBody CoachRequest updateCoachRequest) {
         
+        
+        if (updateCoachRequest.getRouteId() == null || updateCoachRequest.getTrainId() == null || updateCoachRequest.getCoachClass() == null) {
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        }
+        if (updateCoachRequest.getTotalSeats() <= 0) {
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        }
 
-        Coach coach = coachSeatService.getCoachesByRouteAndClass(updateCoachRequest.getRouteId(), updateCoachRequest.getCoachClass()).get(0);
+        if (updateCoachRequest.getTotalSeats() > 104) {
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);            
+        }        
 
-        if (coach == null) {
+        List<Coach> coaches = coachSeatService.getCoachesByRouteAndClass(updateCoachRequest.getRouteId(), updateCoachRequest.getCoachClass());
+
+        if(coaches.size() == 0)
+        {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
+
+        Coach coach = coaches.get(0);
+
+
         // Update the coach details
 
         coach.setRouteId(updateCoachRequest.getRouteId());
         coach.setTrainId(updateCoachRequest.getTrainId());
         coach.setCoachClass(updateCoachRequest.getCoachClass());
-        // coach.setTotalSeats(updateCoachRequest.getTotalSeats());
+        
         
         if (updateCoachRequest.getTotalSeats() == coach.getTotalSeats()) {
+
             return new ResponseEntity<>(coach, HttpStatus.OK);
         } else {
 
-            coachSeatService.deleteCoachById(coach.getCoachId());
-            
-            return new ResponseEntity<>(coachSeatService.createCoach(coach), HttpStatus.OK);
+            coach.setTotalSeats(updateCoachRequest.getTotalSeats());
+            coachSeatService.updateCoachSeats(coach.getCoachId(), coach);
+            return new ResponseEntity<>(coach, HttpStatus.OK);
         }
     }
 
 
     @DeleteMapping("byId")
-    public ResponseEntity<Void> deleteCoachById(@RequestBody IdRequest idRequest) {
+    public ResponseEntity<String> deleteCoachById(@RequestBody IdRequest idRequest) {
         Long id = idRequest.getId();
-        Optional<Coach> coach = coachSeatService.getCoachById(id);
-        if (coach.isPresent()) {
-            coachSeatService.deleteCoachById(id);
-            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        if (coachSeatService.deleteCoachById(id)) {
+            return new ResponseEntity<>("Coach deleted successfully", HttpStatus.OK);
         } else {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            return new ResponseEntity<>("Coach not found", HttpStatus.NOT_FOUND);
         }
     }
 
     @DeleteMapping("/all")
-    public ResponseEntity<Void> deleteAllCoaches() {
-        coachSeatService.deleteAllCoaches();
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    public ResponseEntity<String> deleteAllCoaches() {
+        if (coachSeatService.deleteAllCoaches()) {
+            return new ResponseEntity<>("All coaches deleted successfully", HttpStatus.OK);
+        }
+        return new ResponseEntity<>("No coaches to delete", HttpStatus.NOT_FOUND);
     }
 
     @DeleteMapping("/byRouteId")
-    public ResponseEntity<Void> deleteCoachesByRouteId(@RequestBody IdRequest idRequest) {
+    public ResponseEntity<String> deleteCoachesByRouteId(@RequestBody IdRequest idRequest) {
         Long routeId = idRequest.getId();
         List<Coach> coaches = coachSeatService.getCoachesByRouteId(routeId);
         if (coaches.isEmpty()) {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            return new ResponseEntity<>("No Coaches for this route",HttpStatus.NOT_FOUND);
         } else {
+            boolean allDeleted = false;
             for (Coach coach : coaches) {
-                coachSeatService.deleteCoachById(coach.getCoachId());
+                if (coachSeatService.deleteCoachById(coach.getCoachId())) {
+                    allDeleted = true;
+                }
             }
-            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+
+            if (allDeleted) {
+                return new ResponseEntity<>("All coaches deleted successfully", HttpStatus.OK);
+            } else {
+                return new ResponseEntity<>("No coaches to delete", HttpStatus.NOT_FOUND);
+            }
         }
+        
     }
 
     @DeleteMapping("/byRouteAndClass")
-    public ResponseEntity<Void> deleteCoachesByRouteAndClass(@RequestBody RouteClassRequest routeClassRequest) {
+    public ResponseEntity<String> deleteCoachesByRouteAndClass(@RequestBody RouteClassRequest routeClassRequest) {
         Long routeId = routeClassRequest.getRouteId();
         String coachClass = routeClassRequest.getCoachClass();
         List<Coach> coaches = coachSeatService.getCoachesByRouteAndClass(routeId, coachClass);
+        
         if (coaches.isEmpty()) {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            return new ResponseEntity<>("No Coaches for this route",HttpStatus.NOT_FOUND);
         } else {
+            boolean allDeleted = false;
             for (Coach coach : coaches) {
-                coachSeatService.deleteCoachById(coach.getCoachId());
+                if (coachSeatService.deleteCoachById(coach.getCoachId())) {
+                    allDeleted = true;
+                }
             }
-            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+
+            if (allDeleted) {
+                return new ResponseEntity<>("All coaches deleted successfully", HttpStatus.OK);
+            } else {
+                return new ResponseEntity<>("No coaches to delete", HttpStatus.NOT_FOUND);
+            }
         }
+   
     }
 
     

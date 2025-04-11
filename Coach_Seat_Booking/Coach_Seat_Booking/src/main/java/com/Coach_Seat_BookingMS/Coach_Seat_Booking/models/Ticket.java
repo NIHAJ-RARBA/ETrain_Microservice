@@ -1,6 +1,7 @@
 package com.Coach_Seat_BookingMS.Coach_Seat_Booking.models;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -11,6 +12,9 @@ import jakarta.persistence.OneToMany;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 
 import lombok.Data;
@@ -19,6 +23,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Data
 @NoArgsConstructor
+
 public class Ticket {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,11 +35,13 @@ public class Ticket {
     @Column(nullable = false)
     private boolean isPaid = false;
 
-    @OneToMany
+    @OneToMany(mappedBy = "ticket", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, orphanRemoval = false)
+    @JsonManagedReference
     private List<Seat> seats;
 
+
     @ManyToOne
-    @JoinColumn(name = "id", nullable = false)
+    @JoinColumn(name = "coach_id", nullable = false)
     private Coach coach;
 
     private double totalAmount;
@@ -42,7 +49,8 @@ public class Ticket {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
-    @OneToMany
+    @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @JsonManagedReference
     private List<Passengers> passengers;
 
     // public Ticket(Long userId, List<Seat> seats) {
@@ -64,17 +72,22 @@ public class Ticket {
 
     private double calculateTotalAmount() {
         double total = 0.0;
-        for (Passengers passenger : passengers) {
-            total += passenger.getType().getPrice();
+        if (passengers != null) {
+            for (Passengers passenger : passengers) {
+                total += passenger.getType().getPrice();
+            }
         }
-
-        for (Seat seat : seats) {
-            total += seat.getPrice();
+    
+        if (seats != null) {
+            for (Seat seat : seats) {
+                total += seat.getPrice();
+            }
         }
-
+    
         return total;
     }
 
+    
     public void setSeats(List<Seat> seats) {
         this.seats = seats;
         this.totalAmount = calculateTotalAmount();
@@ -89,4 +102,16 @@ public class Ticket {
     //     return passengers;
     // }
 
+    @Override
+    public String toString() {
+        return "Ticket{" +
+                "ticketId=" + ticketId +
+                ", userId=" + userId +
+                ", isPaid=" + isPaid +
+                ", coach=" + coach +
+                ", totalAmount=" + totalAmount +
+                ", createdAt=" + createdAt +
+                ", passengers=" + passengers +
+                '}';
+    }
 }

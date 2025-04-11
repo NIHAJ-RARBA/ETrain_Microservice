@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -63,7 +62,7 @@ public class SeatLockService {
             if (Boolean.TRUE.equals(success)) {
                 logger.info("Successfully locked seat: {}", seatId);
                 seat.setStatus(SeatStatus.UNAVAILABLE);
-                seatRepository.save(seat);
+                // seatRepository.save(seat);
                 return true;
             }
             logger.warn("Failed to lock seat: {} (already locked)", seatId);
@@ -84,30 +83,45 @@ public class SeatLockService {
         return true;
     }
 
-    public boolean isSeatLocked(Long seatId) {
-        String lockKey = "seat_lock:" + seatId;
-        Boolean isLocked = redisTemplate.hasKey(lockKey);
-        logger.info("Checking if seat is locked: {} -> {}", seatId, isLocked);
-        return Boolean.TRUE.equals(isLocked);
-    }
-
-    public List<Boolean> whichSeatsAreLocked(List<Seat> seats) {
-        List<Boolean> locked = new ArrayList<>();
-        for (Seat seat : seats) {
-            locked.add(isSeatLocked(seat.getSeatId()));
+    public boolean isSeatLocked(Long seatId, Long userId) {
+        logger.info("Checking if seat is locked: {} for user: {}", seatId, userId);
+        String lockKey = "seat_lock:" + seatId + ":" + userId;
+    
+        try {
+            Boolean isLocked = redisTemplate.hasKey(lockKey);
+            if (Boolean.TRUE.equals(isLocked)) {
+                logger.info("Seat is locked by user {}: {}", userId, seatId);
+                return true;
+            } else {
+                logger.info("Seat is not locked by user {}: {}", userId, seatId);
+                return false;
+            }
+        } catch (Exception e) {
+            logger.error("Error while checking seat lock for seat {} and user {}: {}", seatId, userId, e.getMessage());
+            return false;
         }
-        return locked;
     }
+    
 
-    public void unlockSeat(Long seatId) {
+    // public List<Boolean> whichSeatsAreLocked(List<Seat> seats) {
+    //     List<Boolean> locked = new ArrayList<>();
+    //     for (Seat seat : seats) {
+    //         locked.add(isSeatLocked(seat.getSeatId()));
+    //     }
+    //     return locked;
+    // }
+
+    public void unlockSeat(Long seatId, Long userId) {
+        logger.info("Unlocking seat: {} for user: {}", seatId, userId);
         logger.info("Unlocking seat: {}", seatId);
-        String lockKey = "seat_lock:" + seatId + ":*";
+        String lockKey = "seat_lock:" + seatId + ":" + userId; // Use the same lock key format as in lockSeat method
         try {
             redisTemplate.delete(lockKey);
 
             Seat seat = seatRepository.findById(seatId)
                     .orElseThrow(() -> new IllegalArgumentException("Seat not found"));
             seat.setStatus(SeatStatus.AVAILABLE);
+            seat.setTicket(null); // Remove ticket reference from seat
             seatRepository.save(seat);
         } catch (Exception e) {
             logger.error("Error while unlocking seat: {}", seatId, e);
@@ -116,32 +130,23 @@ public class SeatLockService {
     }
 
 
-    public void unlockSeats(Long[] seatIds) {
+    public void unlockSeats(Long[] seatIds, Long userId) {
+        System.out.println("Unlocking seats: " + seatIds);
+
         for (Long seatId : seatIds) {
-            unlockSeat(seatId);
+            unlockSeat(seatId, userId);
+
         }
     }
 
-    public void unlockSeats(List<Seat> seats) {
+    public void unlockSeats(List<Seat> seats, Long userId) {
+        System.out.println("Unlocking seats: " + seats);
         for (Seat seat : seats) {
-            unlockSeat(seat.getSeatId());
+            unlockSeat(seat.getSeatId(), userId);
         }
     }
 
 
-    public void unlockAllSeats() {
-        logger.info("Unlocking all seats");
-        try {
-            redisTemplate.keys("seat_lock:*").forEach(key -> redisTemplate.delete(key));
-            seatRepository.findAll().forEach(seat -> {
-                seat.setStatus(SeatStatus.AVAILABLE);
-                seatRepository.save(seat);
-            });
-        } catch (Exception e) {
-            logger.error("Error while unlocking all seats", e);
-            throw new RuntimeException("Failed to unlock all seats", e);
-        }
-    }
 
     
 

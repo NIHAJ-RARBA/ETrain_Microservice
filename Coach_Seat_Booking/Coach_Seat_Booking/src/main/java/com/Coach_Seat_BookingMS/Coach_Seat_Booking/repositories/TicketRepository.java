@@ -16,5 +16,7 @@ public interface TicketRepository extends JpaRepository<Ticket, Long>
 
     Optional<List<Ticket>> findAllByUserId(Long userId);
     Optional<List<Ticket>> findAllByUserIdAndCoach(Long userId, Coach coach);
+    
+    void deleteAllByCoach(Coach coach);
 
 }

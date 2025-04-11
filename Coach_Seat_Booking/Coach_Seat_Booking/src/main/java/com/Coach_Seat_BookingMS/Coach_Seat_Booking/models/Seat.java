@@ -10,14 +10,19 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Column;
 
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
 import com.Coach_Seat_BookingMS.Coach_Seat_Booking.enums.SeatStatus;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 
 @Entity
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
+@ToString(exclude = "ticket")
 public class Seat {
 
 
@@ -34,9 +39,18 @@ public class Seat {
     @Column(nullable = false)
     private double price;
 
+    // @ManyToOne
+    // // @JoinColumn(name = "id", nullable = false)
+    // private Coach coach; // Relationship with Coach entity
+
+    @Column(name = "coach_id", nullable = false)
+    private Long coachId;
+        
     @ManyToOne
-    @JoinColumn(name = "id", nullable = false)
-    private Coach coach; // Relationship with Coach entity
+    @JoinColumn(name = "ticket", unique = true)
+    @JsonBackReference
+    private Ticket ticket;
+
 
 
 
@@ -54,7 +68,11 @@ public class Seat {
     }
 
     public Long getCoachId() {
-        return coach != null ? coach.getId() : null; // Return the ID of the associated Coach
+        return coachId;
+    }
+
+    public void setCoachId(Long coachId) {
+        this.coachId = coachId;
     }
 
 

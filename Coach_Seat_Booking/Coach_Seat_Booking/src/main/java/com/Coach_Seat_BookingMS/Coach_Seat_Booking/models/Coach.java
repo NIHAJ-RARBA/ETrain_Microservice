@@ -13,12 +13,16 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
 @Entity
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
+@ToString(exclude = "seats")
 public class Coach {
 
     @Id
@@ -29,20 +33,36 @@ public class Coach {
 
     private Long trainId; // Foreign key to Train (stored as plain Long)
 
-    @OneToMany(mappedBy = "coach", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "coachId", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Seat> seats;
     
     
 
-    // private int totalSeats; // Total number of seats in the coach
+    private int totalSeats; // Total number of seats in the coach
 
     @Enumerated(EnumType.STRING)
     private CoachClass coachClass;
 
 
+
     public void setSeats(List<Seat> seats) {
+        if (seats == null) {
+            throw new IllegalArgumentException("Seats list cannot be null");
+        }
         this.seats = seats;
+        this.totalSeats = seats.size();
     }
+
+    public void setTotalSeats(int totalSeats) {
+        this.totalSeats = totalSeats;
+        
+            
+    }
+    
+    public int getTotalSeats() {
+        return totalSeats;
+    }
+
 
     public void setCoachClass(CoachClass coachClass) {
         this.coachClass = coachClass;
@@ -54,10 +74,6 @@ public class Coach {
 
     public Double getSeatPrice() {
         return coachClass != null ? coachClass.getBasePrice() : 0.0;
-    }
-
-    public int getTotalSeats() {
-        return seats != null ? seats.size() : 0; // Return the size of the seats list
     }
     public Long getCoachId() {
         return id;
