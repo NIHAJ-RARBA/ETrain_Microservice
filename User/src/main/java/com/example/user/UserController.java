@@ -21,7 +21,9 @@ public class UserController {
 
     private final UserService userService;
     private final RestTemplate restTemplate;
-    private static final String OTP_SERVICE_URL = "http://otp-service:80";
+    // private static final String OTP_SERVICE_URL =
+    // "http://otp-service:${OTP_SERVICE_PORT:80}";
+    private static final String OTP_SERVICE_URL = "http://otp-service:8080";
 
     public UserController(UserService userService, RestTemplate restTemplate) {
         this.userService = userService;
@@ -32,7 +34,14 @@ public class UserController {
     public ResponseEntity<String> createUser(@RequestBody UserRegistrationRequest request) {
         // User pendingUser = userService.createPendingUser(request);
 
-        userService.createUser(request.getName(), request.getEmail(), request.getPassword());
+        try {
+            userService.createUser(request.getName(), request.getEmail(), request.getPassword());
+
+        } catch (Exception e) {
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error creating user: " + e.getMessage());
+        }
 
         OtpGenerationRequest otpRequest = new OtpGenerationRequest(request.getEmail());
 

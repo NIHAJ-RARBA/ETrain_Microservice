@@ -25,7 +25,7 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/trains")
+@RequestMapping("/train")
 public class TrainController {
     private final TrainService trainService;
     private final RouteService routeService;

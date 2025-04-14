@@ -1,0 +1,71 @@
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coach-seat-service
+  namespace: railway-system
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: coach-seat-service
+  template:
+    metadata:
+      labels:
+        app: coach-seat-service
+    spec:
+      initContainers:
+        - name: wait-for-redis
+          image: busybox:1.28
+          command:
+            [
+              "sh",
+              "-c",
+              'until nc -z redis 6379; do echo "Waiting for Redis"; sleep 2; done;',
+            ]
+      containers:
+        - name: coach-seat-service
+          image: heisamit/coach-seat-service:latest
+          ports:
+            - containerPort: 8080
+
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://postgres-train:5432/train_service_db"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "train_admin"
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: "1234"
+            - name: SPRING_REDIS_HOST
+              value: "redis"
+            - name: SPRING_REDIS_PORT
+              value: "6379"
+            - name: SPRING_REDIS_PASSWORD
+              value: "1234"
+          # livenessProbe:
+          #   httpGet:
+          #     path: /actuator/health
+          #     port: 8080
+          #   initialDelaySeconds: 120
+          #   periodSeconds: 10
+          # readinessProbe:
+          #   httpGet:
+          #     path: /actuator/health
+          #     port: 8080
+          #   initialDelaySeconds: 90
+          #   periodSeconds: 5
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: coach-seat-service
+  namespace: railway-system
+spec:
+  selector:
+    app: coach-seat-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  # type: ClusterIP

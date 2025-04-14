@@ -1,0 +1,76 @@
+# postgres-train.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-train
+  namespace: railway-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-train
+  template:
+    metadata:
+      labels:
+        app: postgres-train
+    spec:
+      containers:
+        - name: postgres-train
+          image: postgres:14-alpine # Specific version for stability
+          env:
+            - name: POSTGRES_DB
+              value: "train_service_db"
+            - name: POSTGRES_USER
+              value: "train_admin"
+            - name: POSTGRES_PASSWORD
+              value: "1234"
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: postgres-train-data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U train_admin -d train_service_db
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+      volumes:
+        - name: postgres-train-data
+          hostPath:
+            path: /data/postgres-train
+            type: DirectoryOrCreate
+      # volumes:
+      #   - name: postgres-train-data
+      #     persistentVolumeClaim:
+      #       claimName: postgres-train-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-train
+  namespace: railway-system
+spec:
+  selector:
+    app: postgres-train
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-train-pvc
+  namespace: railway-system
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  # storageClassName: standard  # Uncomment and set if your cluster requires it

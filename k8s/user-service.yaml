@@ -18,9 +18,9 @@ spec:
         image: heisamit/user-service:latest
         env:
         - name: SPRING_DATASOURCE_URL
-          value: "jdbc:postgresql://postgres:5432/user_service_db"
+          value: "jdbc:postgresql://postgres-user:5432/user_service_db"
         - name: SPRING_DATASOURCE_USERNAME
-          value: "postgres"
+          value: "user_admin"
         - name: SPRING_DATASOURCE_PASSWORD
           value: "postgres"
         ports:

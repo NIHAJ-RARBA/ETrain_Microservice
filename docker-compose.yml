@@ -1,23 +1,66 @@
 
 services:
-  postgres:
+  # postgres:
+  #   image: postgres:latest
+  #   container_name: postgres-db
+  #   environment:
+  #     POSTGRES_DB: user_service_db
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: postgres
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U postgres"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 5
+  #   networks:
+  #     - app-network
+  postgres-user:
     image: postgres:latest
-    container_name: postgres-db
+    container_name: postgres-user
     environment:
       POSTGRES_DB: user_service_db
-      POSTGRES_USER: postgres
+      POSTGRES_USER: user_admin
       POSTGRES_PASSWORD: postgres
+      POSTGRES_INITDB_ARGS: >-
+        --auth-host=scram-sha-256
+        --auth-local=scram-sha-256
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+    - postgres-user-data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5434:5432"
+    networks:
+      - app-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U user_admin -d user_service_db"]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  postgres-train:
+    image: postgres:latest
+    container_name: postgres-train
+    environment:
+      POSTGRES_DB: train_service_db
+      POSTGRES_USER: train_admin
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_INITDB_ARGS: >-
+        --auth-host=scram-sha-256
+        --auth-local=scram-sha-256
+    volumes:
+    - postgres-train-data:/var/lib/postgresql/data
+    ports:
+    - "5433:5432"
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U train_admin -d train_service_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   otp-service:
     build: ./otp
@@ -34,7 +77,7 @@ services:
     networks:
       - app-network
     depends_on:
-      - postgres
+      - postgres-user
     
 
   user-service:
@@ -42,15 +85,16 @@ services:
     container_name: user-service
     image: heisamit/user-service:latest
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/user_service_db
-      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-user:5432/user_service_db
+      SPRING_DATASOURCE_USERNAME: user_admin
       SPRING_DATASOURCE_PASSWORD: postgres
+      OTP_SERVICE_PORT: 8080
     ports:
     - "8081:8080"  # Exposing container's port 8080 as host's port 8081
     networks:
       - app-network
     depends_on:
-      postgres:
+      postgres-user:
         condition: service_healthy
 
   api-gateway:
@@ -61,10 +105,16 @@ services:
       - "8080:8080"     # Expose gateway to external clients
     networks:
       - app-network
+    environment:
+      - USER_SERVICE_PORT=8080
+      - OTP_SERVICE_PORT=8080
+      - PAYMENT_SERVICE_PORT=8080
+      - TRAIN_SERVICE_PORT=8080
+      - COACH_SEAT_SERVICE_PORT=8080
     depends_on:
       - user-service
       - otp-service
-      - postgres
+      - postgres-user
       - payment-service
 
   payment-service:
@@ -76,17 +126,68 @@ services:
     environment:
       - SPRING_DATASOURCE_URL=jdbc:h2:mem:payment_db
       - SPRING_PROFILES_ACTIVE=mock
+    networks:
+      - app-network
     # healthcheck:
     #   test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
     #   interval: 30s
     #   timeout: 10s
     #   retries: 3
+
+  
+  coach-seat-service:
+    build: ./Coach_Seat_Booking/Coach_Seat_Booking
+    container_name: coach-seat-service
+    image: heisamit/coach-seat-service:latest
+    ports:
+      - "8282:8080"
+    depends_on:
+      redis:
+        condition: service_started
+      postgres-train:
+        condition: service_healthy
+    environment:
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+      SPRING_REDIS_PASSWORD: 1234
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-train:5432/train_service_db
+      SPRING_DATASOURCE_USERNAME: train_admin
+      SPRING_DATASOURCE_PASSWORD: 1234
     networks:
       - app-network
 
+  train-service:
+    build: ./Train/Train
+    container_name: train-service
+    image: heisamit/train-service:latest
+    ports:
+      - "8084:8080"
+    depends_on:
+      postgres-train:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-train:5432/train_service_db
+      SPRING_DATASOURCE_USERNAME: train_admin
+      SPRING_DATASOURCE_PASSWORD: 1234
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass 1234
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+    
+
+
 
 volumes:
-  postgres-data:
+  postgres-user-data:
+    driver: local
+  postgres-train-data:
+    driver: local
 
 networks:
   app-network:
