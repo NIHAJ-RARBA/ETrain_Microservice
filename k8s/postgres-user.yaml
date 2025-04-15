@@ -1,10 +1,11 @@
 # postgres-user.yaml
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: postgres-user
   namespace: railway-system
 spec:
+  serviceName: postgres-user # Required for StatefulSet network identity
   replicas: 1
   selector:
     matchLabels:
@@ -16,7 +17,7 @@ spec:
     spec:
       containers:
         - name: postgres-user
-          image: postgres:14-alpine # Use specific version for stability
+          image: postgres:14-alpine
           env:
             - name: POSTGRES_DB
               value: "user_service_db"
@@ -37,15 +38,17 @@ spec:
                 - pg_isready -U user_admin -d user_service_db
             initialDelaySeconds: 5
             periodSeconds: 5
-      volumes:
-        - name: postgres-user-data
-          hostPath:
-            path: /data/postgres-user
-            type: DirectoryOrCreate
-      # volumes:
-      #   - name: postgres-user-data
-      #     persistentVolumeClaim:
-      #       claimName: postgres-user-pvc
+  volumeClaimTemplates: # Dynamic PVC creation for StatefulSet
+    - metadata:
+        name: postgres-user-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+        # storageClassName: standard  # Uncomment if needed
+
 ---
 apiVersion: v1
 kind: Service
@@ -53,23 +56,10 @@ metadata:
   name: postgres-user
   namespace: railway-system
 spec:
+  clusterIP: None # Headless service for StatefulSet
   selector:
     app: postgres-user
   ports:
     - protocol: TCP
       port: 5432
       targetPort: 5432
-  type: ClusterIP
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: postgres-user-pvc
-  namespace: railway-system
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
-  # storageClassName: standard  # Uncomment and set if your cluster requires it

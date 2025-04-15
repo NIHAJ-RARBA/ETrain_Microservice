@@ -1,10 +1,11 @@
 # postgres-train.yaml
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: postgres-train
   namespace: railway-system
 spec:
+  serviceName: postgres-train # Required for StatefulSet network identity
   replicas: 1
   selector:
     matchLabels:
@@ -16,7 +17,7 @@ spec:
     spec:
       containers:
         - name: postgres-train
-          image: postgres:14-alpine # Specific version for stability
+          image: postgres:14-alpine
           env:
             - name: POSTGRES_DB
               value: "train_service_db"
@@ -37,16 +38,17 @@ spec:
                 - pg_isready -U train_admin -d train_service_db
             initialDelaySeconds: 5
             periodSeconds: 5
+  volumeClaimTemplates: # Dynamic PVC creation for StatefulSet
+    - metadata:
+        name: postgres-train-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+        # storageClassName: standard  # Uncomment if needed
 
-      volumes:
-        - name: postgres-train-data
-          hostPath:
-            path: /data/postgres-train
-            type: DirectoryOrCreate
-      # volumes:
-      #   - name: postgres-train-data
-      #     persistentVolumeClaim:
-      #       claimName: postgres-train-pvc
 ---
 apiVersion: v1
 kind: Service
@@ -54,23 +56,10 @@ metadata:
   name: postgres-train
   namespace: railway-system
 spec:
+  clusterIP: None # Headless service for StatefulSet
   selector:
     app: postgres-train
   ports:
     - protocol: TCP
       port: 5432
       targetPort: 5432
-  type: ClusterIP
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: postgres-train-pvc
-  namespace: railway-system
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
-  # storageClassName: standard  # Uncomment and set if your cluster requires it

@@ -1,9 +1,53 @@
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: redis
+#   namespace: railway-system
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: redis
+#   template:
+#     metadata:
+#       labels:
+#         app: redis
+#     spec:
+#       containers:
+#       - name: redis
+#         image: redis:7-alpine
+#         command: ["redis-server", "--requirepass 1234"]
+#         ports:
+#         - containerPort: 6379
+#         volumeMounts:
+#         - name: redis-data
+#           mountPath: /data
+#       volumes:
+#       - name: redis-data
+#         emptyDir: {}
+
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: redis
+#   namespace: railway-system
+# spec:
+#   selector:
+#     app: redis
+#   ports:
+#     - protocol: TCP
+#       port: 6379
+#       targetPort: 6379
+#   type: ClusterIP
+
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: redis
   namespace: railway-system
 spec:
+  serviceName: redis
   replicas: 1
   selector:
     matchLabels:
@@ -14,17 +58,48 @@ spec:
         app: redis
     spec:
       containers:
-      - name: redis
-        image: redis:7-alpine
-        command: ["redis-server", "--requirepass 1234"]
-        ports:
-        - containerPort: 6379
-        volumeMounts:
-        - name: redis-data
-          mountPath: /data
-      volumes:
-      - name: redis-data
-        emptyDir: {}
+        - name: redis
+          image: redis:7-alpine
+          command: ["redis-server", "--requirepass 1234"]
+          ports:
+            - containerPort: 6379
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - -a
+                - "1234"
+                - ping
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - redis-cli
+                - -a
+                - "1234"
+                - ping
+            initialDelaySeconds: 10
+            periodSeconds: 20
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 5Gi
 
 ---
 apiVersion: v1
@@ -33,10 +108,10 @@ metadata:
   name: redis
   namespace: railway-system
 spec:
+  clusterIP: None
   selector:
     app: redis
   ports:
     - protocol: TCP
       port: 6379
       targetPort: 6379
-  type: ClusterIP
