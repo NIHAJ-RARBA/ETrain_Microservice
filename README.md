@@ -59,7 +59,7 @@ This project implements a microservices architecture using Spring Boot 3.4.4 and
 
 - **Booking Management**:
   - Multi-passenger ticket creation
-  - Passenger type-based pricing (ADULT: ₹300, CHILD: ₹100)
+  - Passenger type-based pricing (ADULT: tk 300, CHILD: tk 100)
   - Seat status management (AVAILABLE/UNAVAILABLE)
   - Payment processing and ticket validation
   - Booking updates and cancellations
